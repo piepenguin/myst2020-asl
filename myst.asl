@@ -3,7 +3,15 @@
 // for the time being. This ensures that the code that needs to be patched
 // has actually been loaded.
 
-state("Myst-Win64-Shipping")
+// Current UE5 version. This is unsupported, but defined so that the splitter
+// falls back gracefully to not removing loads if enabled on patches newer
+// than v1.8.7.
+state("Myst-Win64-Shipping", "v3.0.4")
+{
+}
+
+// Latest UE4 version.
+state("Myst-Win64-Shipping", "v1.8.7")
 {
 	bool isLoading : 0x503C910, 0x0, 0x08, 0x28, 0x2D;
 	bool whitePagePickedUp : 0x5023D90, 0x490, 0x1E44;
@@ -21,6 +29,22 @@ init
 {
 	const int chunkSize = 64 * 1024; // In object entries
 	const int entrySize = 0x18; // In bytes
+
+	vars.posWatchers = null;
+
+	vars.atSpawnCurrent = false;
+	vars.atSpawnPrev = false;
+	vars.justMovedFromSpawn = false;
+	vars.isSupportedVersion = false;
+
+	if (modules.First().ModuleMemorySize == 92225536) {
+		version = "v1.8.7";
+		vars.isSupportedVersion = true;
+	}
+
+	if (!vars.isSupportedVersion) {
+		return;
+	}
 
 	var chunkHolder = modules.First().BaseAddress + 0x512E9F0;
 	var numEntries = memory.ReadValue<Int32>(chunkHolder + 0x14);
@@ -158,10 +182,6 @@ init
 			vars.z,
 		};
 	}
-
-	vars.atSpawnCurrent = false;
-	vars.atSpawnPrev = false;
-	vars.justMovedFromSpawn = false;
 }
 
 
@@ -195,6 +215,10 @@ start {
 }
 
 split {
+	if (!vars.isSupportedVersion) {
+		return false;
+	}
+
 	if (settings.ContainsKey("settings_splitWhitePagePickup")
 	    && settings["settings_splitWhitePagePickup"]
 	    && current.whitePagePickedUp
@@ -214,6 +238,6 @@ split {
 
 isLoading
 {
-	return current.isLoading;
+	return vars.isSupportedVersion && current.isLoading;
 }
 
